@@ -1,65 +1,20 @@
 import * as dgram from "dgram";
+import { domainNameParser } from "./helpers/domainNameParser.utils";
 
 const udpSocket = dgram.createSocket("udp4");
 udpSocket.bind(2053, "127.0.0.1");
 
 // Domain to IP mapping (simple in-memory storage)
 const dnsRecords: Record<string, string[]> = {
-    'google.com.': ['142.250.190.78', '142.250.190.110'], // Google's IPs
-    'www.google.com.': ['142.250.190.100'] // Example subdomain
+    'google.com.': ['142.250.190.78', '142.250.190.110'],
+    'www.google.com.': ['142.250.190.100'] 
 };
 
-// Helper function to parse domain name
-function parseName(buffer: Buffer, offset: number): { name: string; newOffset: number } {
-    let name = "";
-    let originalOffset = offset;
-    let jumped = false;
-    let newOffset = 0;
 
-    while (true) {
-        if (offset >= buffer.length) break;
 
-        const len = buffer.readUInt8(offset);
-        offset++;
-
-        if (len === 0) break; // End of name
-
-        // Handle DNS compression pointers
-        if ((len & 0xc0) === 0xc0) {
-            if (!jumped) {
-                newOffset = offset + 1;
-                jumped = true;
-            }
-            offset = ((len & 0x3f) << 8) | buffer.readUInt8(offset);
-            continue;
-        }
-
-        name += buffer.toString('ascii', offset, offset + len) + '.';
-        offset += len;
-    }
-
-    if (!jumped) {
-        newOffset = offset;
-    }
-
-    return { name: name, newOffset };
-}
 
 // Helper to encode domain name into DNS format
-function encodeName(domain: string): Buffer {
-    const parts = domain.split('.');
-    const buf = Buffer.alloc(domain.length + 2); // +2 for length bytes and null terminator
-    
-    let offset = 0;
-    for (const part of parts) {
-        buf.writeUInt8(part.length, offset++);
-        buf.write(part, offset, part.length, 'ascii');
-        offset += part.length;
-    }
-    buf.writeUInt8(0, offset); // Null terminator
-    
-    return buf.slice(0, offset + 1);
-}
+
 
 udpSocket.on("message", (data: Buffer, remoteAddr: dgram.RemoteInfo) => {
     try {
@@ -70,7 +25,7 @@ udpSocket.on("message", (data: Buffer, remoteAddr: dgram.RemoteInfo) => {
         
         // Parse question section
         let offset = 12;
-        const { name: queryName, newOffset } = parseName(data, offset);
+        const { name: queryName, newOffset } = domainNameParser(data, offset);
         offset = newOffset;
         const qtype = data.readUInt16BE(offset);
         offset += 2;
