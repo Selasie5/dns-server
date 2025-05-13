@@ -13,17 +13,17 @@ const dnsRecords: Record<string, string[]> = {
 
 
 
-// Helper to encode domain name into DNS format
+
 
 
 udpSocket.on("message", (data: Buffer, remoteAddr: dgram.RemoteInfo) => {
     try {
-        // Parse the query
+       
         const transactionId = data.readUInt16BE(0);
         const flags = data.readUInt16BE(2);
         const questions = data.readUInt16BE(4);
         
-        // Parse question section
+   
         let offset = 12;
         const { name: queryName, newOffset } = domainNameParser(data, offset);
         offset = newOffset;
@@ -34,16 +34,16 @@ udpSocket.on("message", (data: Buffer, remoteAddr: dgram.RemoteInfo) => {
 
         console.log(`Query for: ${queryName}, type: ${qtype}, class: ${qclass}`);
 
-        // Prepare response buffer
-        const response = Buffer.alloc(512); // Standard DNS UDP size
+       
+        const response = Buffer.alloc(512);
         let respOffset = 0;
 
-        // Write header
+     
         response.writeUInt16BE(transactionId, respOffset); // Transaction ID
         respOffset += 2;
         
         // Flags: QR=1, Opcode=0, AA=0, TC=0, RD=0, RA=0, Z=0, RCODE=0
-        response.writeUInt16BE(0x8180, respOffset); // Standard response flags
+        response.writeUInt16BE(0x8180, respOffset); 
         respOffset += 2;
         
         response.writeUInt16BE(questions, respOffset); // QDCOUNT
@@ -59,16 +59,16 @@ udpSocket.on("message", (data: Buffer, remoteAddr: dgram.RemoteInfo) => {
         response.writeUInt16BE(0, respOffset); // ARCOUNT
         respOffset += 2;
 
-        // Write question section (copy from query)
+       
         data.copy(response, respOffset, 12, offset);
         respOffset += (offset - 12);
 
         // Write answer section if we have records
-        if (answers > 0 && qtype === 1) { // Only handle A records (type 1)
-            const namePtr = 0xc00c; // Pointer to name in question section
+        if (answers > 0 && qtype === 1) { 
+            const namePtr = 0xc00c; 
             
             for (const ip of dnsRecords[queryName]) {
-                // Write compressed name (pointer to question)
+               
                 response.writeUInt16BE(namePtr, respOffset);
                 respOffset += 2;
                 
@@ -88,7 +88,7 @@ udpSocket.on("message", (data: Buffer, remoteAddr: dgram.RemoteInfo) => {
                 response.writeUInt16BE(4, respOffset);
                 respOffset += 2;
                 
-                // Write IP address
+              
                 const ipParts = ip.split('.').map(Number);
                 for (const part of ipParts) {
                     response.writeUInt8(part, respOffset);
@@ -97,7 +97,7 @@ udpSocket.on("message", (data: Buffer, remoteAddr: dgram.RemoteInfo) => {
             }
         }
 
-        // Send the response
+       
         udpSocket.send(response.slice(0, respOffset), remoteAddr.port, remoteAddr.address);
         console.log(`Sent response for ${queryName} with ${answers} records`);
 
